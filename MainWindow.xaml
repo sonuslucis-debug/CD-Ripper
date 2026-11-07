@@ -36,8 +36,9 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" VerticalAlignment="Top">
-                <Border Width="250" Height="250" HorizontalAlignment="Left"
-                        BorderBrush="#FFBBBBBB" BorderThickness="1" Background="#FFF2F2F2">
+                <Border x:Name="CoverBorder" Width="250" Height="250" HorizontalAlignment="Left"
+                        BorderBrush="#FFBBBBBB" BorderThickness="1" Background="#FFF2F2F2"
+                        ToolTip="Double-click to view full size" MouseLeftButtonDown="Cover_MouseDown">
                     <Grid>
                         <Image x:Name="CoverImage" Stretch="Uniform" />
                         <TextBlock x:Name="NoCoverText" Text="No cover" Foreground="Gray"
@@ -96,7 +97,7 @@
                             <DataGridTemplateColumn.Header>
                                 <CheckBox IsChecked="True" Click="SelectAll_Click" HorizontalAlignment="Center"
                                           ToolTip="Select / deselect all tracks" />
-                                    </DataGridTemplateColumn.Header>
+                            </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}"
@@ -121,17 +122,15 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Save to:" VerticalAlignment="Center" Margin="0,0,8,0" />
             <TextBox Grid.Column="1" x:Name="OutputBox" Padding="2" VerticalContentAlignment="Center" />
             <Button Grid.Column="2" x:Name="BrowseButton" Content="Browse..." Padding="12,3" Margin="8,0,0,0" Click="Browse_Click" />
             <TextBlock Grid.Column="3" Text="Format:" VerticalAlignment="Center" Margin="16,0,8,0" />
-            <ComboBox Grid.Column="4" x:Name="FormatBox" Width="170" SelectedIndex="0">
-                <ComboBoxItem Content="WAV (uncompressed)" />
-                <ComboBoxItem Content="MP3 (coming soon)" IsEnabled="False" />
-                <ComboBoxItem Content="FLAC (coming soon)" IsEnabled="False" />
-                <ComboBoxItem Content="OGG (coming soon)" IsEnabled="False" />
-            </ComboBox>
+            <ComboBox Grid.Column="4" x:Name="FormatBox" Width="80" DisplayMemberPath="Name"
+                      SelectionChanged="Format_SelectionChanged" />
+            <ComboBox Grid.Column="5" x:Name="QualityBox" Width="250" Margin="8,0,0,0" DisplayMemberPath="Label" />
         </Grid>
 
         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,10,0,0">

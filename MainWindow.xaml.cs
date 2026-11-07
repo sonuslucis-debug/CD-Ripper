@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using CdRipper.Services;
 using Microsoft.Win32;
@@ -25,6 +26,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         OutputBox.Text = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "CD Rips");
+        FormatBox.ItemsSource = OutputFormats.All;
+        FormatBox.SelectedIndex = 0;
         Loaded += (_, _) => ScanDrives();
     }
 
@@ -163,7 +166,8 @@ public partial class MainWindow : Window
 
         try
         {
-            var data = await _coverArt.GetFrontAsync(release.Id, 500, ct);
+            var data = await _coverArt.GetFrontAsync(release.Id, 1200, ct)
+                       ?? await _coverArt.GetFrontAsync(release.Id, 500, ct);
             if (ct.IsCancellationRequested) return;
             var image = data == null ? null : ToImage(data);
             if (image != null) _coverBytes = data;
@@ -198,6 +202,33 @@ public partial class MainWindow : Window
             SetStatus("Couldn't load the image: " + ex.Message);
         }
     }
+
+    void Format_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (QualityBox == null || FormatBox.SelectedItem is not OutputFormat format) return;
+        QualityBox.ItemsSource = format.Qualities;
+        QualityBox.SelectedIndex = 0;
+        QualityBox.Visibility = format.Qualities.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    void Cover_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || CoverImage.Source is not BitmapSource image) return;
+
+        var area = SystemParameters.WorkArea;
+        var viewer = new Window
+        {
+            Title = "Cover art  (" + image.PixelWidth + " x " + image.PixelHeight + ")  -  press Esc to close",
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Width = Math.Min(image.PixelWidth + 16, area.Width * 0.9),
+            Height = Math.Min(image.PixelHeight + 39, area.Height * 0.9),
+            Content = new Image { Source = image, Stretch = System.Windows.Media.Stretch.Uniform }
+        };
+        viewer.KeyDown += (_, k) => { if (k.Key == Key.Escape) viewer.Close(); };
+        viewer.Show();
+    }
+
     void SelectAll_Click(object sender, RoutedEventArgs e)
     {
         TrackGrid.CommitEdit(DataGridEditingUnit.Row, true);
@@ -205,6 +236,7 @@ public partial class MainWindow : Window
         foreach (var t in _tracks) t.Selected = on;
         TrackGrid.Items.Refresh();
     }
+
     void ApplyArtist_Click(object sender, RoutedEventArgs e)
     {
         TrackGrid.CommitEdit(DataGridEditingUnit.Row, true);
@@ -236,6 +268,8 @@ public partial class MainWindow : Window
         BrowseButton.IsEnabled = !busy;
         CoverButton.IsEnabled = !busy;
         ApplyArtistButton.IsEnabled = !busy;
+        FormatBox.IsEnabled = !busy;
+        QualityBox.IsEnabled = !busy;
         ReleaseList.IsEnabled = !busy;
         TrackGrid.IsReadOnly = busy;
     }
@@ -260,6 +294,17 @@ public partial class MainWindow : Window
         string root = OutputBox.Text.Trim();
         if (root == "") { SetStatus("Choose a folder to save to."); return; }
 
+        if (FormatBox.SelectedItem is not OutputFormat format || QualityBox.SelectedItem is not QualityOption quality)
+        { SetStatus("Choose an output format."); return; }
+
+        uint year = uint.TryParse(YearBox.Text.Trim(), out var y) ? y : 0;
+        uint discNumber = uint.TryParse(DiscNumBox.Text.Trim(), out var dn) ? dn : 0;
+        uint discCount = uint.TryParse(DiscTotalBox.Text.Trim(), out var dc) ? dc : 0;
+        string albumText = AlbumBox.Text.Trim();
+        string albumArtistText = ArtistBox.Text.Trim();
+        string genreText = GenreBox.Text.Trim();
+        var cover = _coverBytes;
+
         string albumArtist = CleanName(ArtistBox.Text, "Unknown Artist");
         string album = CleanName(AlbumBox.Text, "Unknown Album");
         string folder = Path.Combine(root, albumArtist, album);
@@ -272,6 +317,7 @@ public partial class MainWindow : Window
 
         int doneTracks = 0;
         int totalBad = 0;
+        int tagProblems = 0;
         try
         {
             Directory.CreateDirectory(folder);
@@ -295,22 +341,50 @@ public partial class MainWindow : Window
                 int endLba = (next?.Offset ?? toc.LeadOut) - 150;
 
                 string title = CleanName(track.Title, $"Track {track.Number:00}");
-                string file = Path.Combine(folder, $"{track.Number:00} - {title}.wav");
+                string file = Path.Combine(folder, $"{track.Number:00} - {title}{format.Extension}");
 
                 SetStatus($"Ripping track {doneTracks + 1} of {selected.Count}: {title}");
                 int baseCount = doneTracks;
                 var progress = new Progress<double>(f =>
                     RipProgress.Value = (baseCount + f) / selected.Count * 100);
 
-                int bad = await Task.Run(() => Ripper.RipTrackToWav(reader, startLba, endLba, file, progress, ct));
+                var tag = new TagInfo
+                {
+                    Title = track.Title.Trim(),
+                    Artist = track.Artist.Trim(),
+                    Album = albumText,
+                    AlbumArtist = albumArtistText,
+                    Genre = genreText,
+                    Year = year,
+                    Track = (uint)track.Number,
+                    TrackCount = (uint)_tracks.Count,
+                    Disc = discNumber,
+                    DiscCount = discCount,
+                    Cover = cover
+                };
+
+                bool tagFailed = false;
+                int bad = await Task.Run(() =>
+                {
+                    int unreadable = Ripper.RipTrack(reader, startLba, endLba, quality.CreateSink(file), progress, ct);
+                    if (format.Taggable)
+                    {
+                        try { Tagger.Apply(file, tag); }
+                        catch { tagFailed = true; }
+                    }
+                    return unreadable;
+                });
+                if (tagFailed) tagProblems++;
                 totalBad += bad;
                 doneTracks++;
             }
 
             RipProgress.Value = 100;
-            SetStatus(totalBad == 0
+            string message = totalBad == 0
                 ? $"Done. {doneTracks} track(s) ripped to {folder}"
-                : $"Done, but {totalBad} unreadable sector(s) were replaced with silence (small clicks or gaps may be audible). Saved to {folder}");
+                : $"Done, but {totalBad} unreadable sector(s) were replaced with silence (small clicks or gaps may be audible). Saved to {folder}";
+            if (tagProblems > 0) message += $" Tags couldn't be written to {tagProblems} file(s).";
+            SetStatus(message);
         }
         catch (OperationCanceledException)
         {

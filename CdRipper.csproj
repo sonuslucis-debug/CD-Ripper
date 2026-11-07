@@ -8,7 +8,13 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>CdRipper</AssemblyName>
     <RootNamespace>CdRipper</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.3.0</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.Lame" Version="2.1.0" />
+    <PackageReference Include="OggVorbisEncoder" Version="1.2.*" />
+    <PackageReference Include="TagLibSharp" Version="2.3.0" />
+  </ItemGroup>
 
 </Project>

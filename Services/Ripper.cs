@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace CdRipper.Services;
 
 public static class Ripper
@@ -9,11 +7,10 @@ public static class Ripper
     const int MaxConsecutiveBadSectors = 150; // about 2 seconds of audio
 
     /// <summary>
-    /// Rips sectors [startLba, endLba) to a 44.1 kHz 16-bit stereo WAV file.
-    /// Returns the number of sectors that could not be read (written as silence).
-    /// A partly written file is deleted if the rip is cancelled or fails.
+    /// Rips sectors [startLba, endLba) into the sink. Returns the number of sectors that could not
+    /// be read (written as silence). If the rip is cancelled or fails, the partly written file is deleted.
     /// </summary>
-    public static int RipTrackToWav(ISectorSource source, int startLba, int endLba, string path,
+    public static int RipTrack(ISectorSource source, int startLba, int endLba, IPcmSink sink,
         IProgress<double>? progress, CancellationToken ct)
     {
         int total = endLba - startLba;
@@ -21,10 +18,9 @@ public static class Ripper
 
         int bad = 0, consecutiveBad = 0, done = 0, lastReported = -1;
         bool completed = false;
-        var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
         try
         {
-            WriteWavHeader(stream, (uint)((long)total * SectorBytes));
+            sink.Begin((long)total * SectorBytes);
             var buffer = new byte[ChunkSectors * SectorBytes];
             var single = new byte[SectorBytes];
 
@@ -62,7 +58,7 @@ public static class Ripper
                     }
                 }
 
-                stream.Write(buffer, 0, n * SectorBytes);
+                sink.Write(buffer, n * SectorBytes);
                 done += n;
 
                 int permille = (int)((long)done * 1000 / total);
@@ -72,14 +68,15 @@ public static class Ripper
                     progress?.Report(done / (double)total);
                 }
             }
+            sink.Finish();
             completed = true;
         }
         finally
         {
-            stream.Dispose();
+            sink.Dispose();
             if (!completed)
             {
-                try { File.Delete(path); } catch { }
+                try { File.Delete(sink.FilePath); } catch { }
             }
         }
         return bad;
@@ -90,23 +87,5 @@ public static class Ripper
         for (int i = 0; i < attempts; i++)
             if (source.Read(lba, count, buffer)) return true;
         return false;
-    }
-
-    static void WriteWavHeader(Stream s, uint dataLength)
-    {
-        using var w = new BinaryWriter(s, Encoding.ASCII, leaveOpen: true);
-        w.Write(Encoding.ASCII.GetBytes("RIFF"));
-        w.Write(36 + dataLength);
-        w.Write(Encoding.ASCII.GetBytes("WAVE"));
-        w.Write(Encoding.ASCII.GetBytes("fmt "));
-        w.Write(16u);
-        w.Write((ushort)1);        // PCM
-        w.Write((ushort)2);        // channels
-        w.Write(44100u);           // sample rate
-        w.Write(44100u * 4);       // byte rate
-        w.Write((ushort)4);        // block align
-        w.Write((ushort)16);       // bits per sample
-        w.Write(Encoding.ASCII.GetBytes("data"));
-        w.Write(dataLength);
     }
 }
