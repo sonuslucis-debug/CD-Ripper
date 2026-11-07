@@ -1,7 +1,7 @@
 <Window x:Class="CdRipper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CD Ripper" Height="640" Width="920" MinHeight="500" MinWidth="740"
+        Title="CD Ripper" Height="780" Width="980" MinHeight="620" MinWidth="820"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="14">
         <Grid.RowDefinitions>
@@ -10,47 +10,135 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- Drive -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBlock Text="Drive:" VerticalAlignment="Center" Margin="0,0,8,0" />
             <ComboBox x:Name="DriveBox" Width="80" Margin="0,0,8,0" />
-            <Button Content="Rescan drives" Padding="12,4" Margin="0,0,8,0" Click="Rescan_Click" />
+            <Button x:Name="RescanButton" Content="Rescan drives" Padding="12,4" Margin="0,0,8,0" Click="Rescan_Click" />
             <Button x:Name="ReadButton" Content="Read disc" Padding="16,4" FontWeight="SemiBold" Click="Read_Click" />
         </StackPanel>
 
         <TextBox Grid.Row="1" x:Name="DiscIdText" IsReadOnly="True" BorderThickness="0"
-                 Background="Transparent" Margin="0,0,0,8" />
+                 Background="Transparent" Margin="0,0,0,6" />
 
-        <ListBox Grid.Row="2" x:Name="ReleaseList" MaxHeight="130" Margin="0,0,0,10"
+        <ListBox Grid.Row="2" x:Name="ReleaseList" MaxHeight="80" Margin="0,0,0,10"
                  DisplayMemberPath="DisplayText" SelectionChanged="ReleaseList_SelectionChanged" />
 
+        <!-- Cover + metadata + tracks -->
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="270" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Width="250" Height="250" VerticalAlignment="Top" HorizontalAlignment="Left"
-                    BorderBrush="#FFBBBBBB" BorderThickness="1" Background="#FFF2F2F2">
-                <Grid>
-                    <Image x:Name="CoverImage" Stretch="Uniform" />
-                    <TextBlock x:Name="NoCoverText" Text="No cover" Foreground="Gray"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Grid>
-            </Border>
+            <StackPanel Grid.Column="0" VerticalAlignment="Top">
+                <Border Width="250" Height="250" HorizontalAlignment="Left"
+                        BorderBrush="#FFBBBBBB" BorderThickness="1" Background="#FFF2F2F2">
+                    <Grid>
+                        <Image x:Name="CoverImage" Stretch="Uniform" />
+                        <TextBlock x:Name="NoCoverText" Text="No cover" Foreground="Gray"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+                <Button x:Name="CoverButton" Content="Choose cover image..." Width="250" HorizontalAlignment="Left"
+                        Margin="0,8,0,0" Padding="8,4" Click="ChooseCover_Click" />
+            </StackPanel>
 
-            <DataGrid Grid.Column="1" x:Name="TrackGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserAddRows="False">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40" />
-                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
-                    <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="180" />
-                    <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="60" />
-                </DataGrid.Columns>
-            </DataGrid>
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Album:" VerticalAlignment="Center" Margin="0,0,8,6" />
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="AlbumBox" Margin="0,0,14,6" Padding="2" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Year:" VerticalAlignment="Center" Margin="0,0,8,6" />
+                    <TextBox Grid.Row="0" Grid.Column="3" x:Name="YearBox" Width="80" HorizontalAlignment="Left" Margin="0,0,0,6" Padding="2" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Album artist:" VerticalAlignment="Center" Margin="0,0,8,6" />
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="ArtistBox" Margin="0,0,14,6" Padding="2" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Genre:" VerticalAlignment="Center" Margin="0,0,8,6" />
+                    <TextBox Grid.Row="1" Grid.Column="3" x:Name="GenreBox" Margin="0,0,0,6" Padding="2" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Disc:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                        <TextBox x:Name="DiscNumBox" Width="40" Padding="2" />
+                        <TextBlock Text=" of " VerticalAlignment="Center" />
+                        <TextBox x:Name="DiscTotalBox" Width="40" Padding="2" />
+                    </StackPanel>
+                    <Button Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" x:Name="ApplyArtistButton"
+                            Content="Copy album artist to all tracks" HorizontalAlignment="Left"
+                            Padding="10,3" Click="ApplyArtist_Click" />
+                </Grid>
+
+                <DataGrid Grid.Row="1" x:Name="TrackGrid" AutoGenerateColumns="False"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          CanUserAddRows="False" CanUserDeleteRows="False" SelectionUnit="Cell">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Rip" Width="44">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="36" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
+                        <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="190" />
+                        <DataGridTextColumn Header="Length" Binding="{Binding LengthText}" Width="60" IsReadOnly="True" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Grid>
 
-        <TextBlock Grid.Row="4" x:Name="StatusText" Margin="0,10,0,0" TextWrapping="Wrap" />
+        <!-- Output -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Save to:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Column="1" x:Name="OutputBox" Padding="2" VerticalContentAlignment="Center" />
+            <Button Grid.Column="2" x:Name="BrowseButton" Content="Browse..." Padding="12,3" Margin="8,0,0,0" Click="Browse_Click" />
+            <TextBlock Grid.Column="3" Text="Format:" VerticalAlignment="Center" Margin="16,0,8,0" />
+            <ComboBox Grid.Column="4" x:Name="FormatBox" Width="170" SelectedIndex="0">
+                <ComboBoxItem Content="WAV (uncompressed)" />
+                <ComboBoxItem Content="MP3 (coming soon)" IsEnabled="False" />
+                <ComboBoxItem Content="FLAC (coming soon)" IsEnabled="False" />
+                <ComboBoxItem Content="OGG (coming soon)" IsEnabled="False" />
+            </ComboBox>
+        </Grid>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,10,0,0">
+            <Button x:Name="RipButton" Content="Rip selected tracks" Padding="18,5" FontWeight="SemiBold" Click="Rip_Click" />
+            <Button x:Name="CancelButton" Content="Cancel" Padding="14,5" Margin="8,0,0,0" IsEnabled="False" Click="Cancel_Click" />
+            <Button x:Name="OpenFolderButton" Content="Open folder" Padding="14,5" Margin="8,0,0,0" IsEnabled="False" Click="OpenFolder_Click" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="6" Margin="0,10,0,0">
+            <ProgressBar x:Name="RipProgress" Height="16" Minimum="0" Maximum="100" />
+            <TextBlock x:Name="StatusText" Margin="0,6,0,0" TextWrapping="Wrap" />
+        </StackPanel>
     </Grid>
 </Window>

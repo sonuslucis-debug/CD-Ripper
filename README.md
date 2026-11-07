@@ -1,12 +1,6 @@
-# CD Ripper (stage 1)
+# CD Ripper
 
-Reads an audio CD's table of contents, works out the MusicBrainz Disc ID, and shows the
-album, artist, track list and front cover. Ripping/encoding come in later stages.
+Stage 2: read a disc, look it up on MusicBrainz, edit the details, rip tracks to WAV.
+MP3, FLAC and OGG output are planned next.
 
-## Getting the .exe (free, no installs)
-1. Create a free GitHub account and a new repository (public = unlimited free builds).
-2. Upload everything in this folder to it (including the hidden `.github` folder).
-3. Open the **Actions** tab -> **Build CdRipper** -> it runs automatically on upload
-   (or click **Run workflow**).
-4. When it goes green (about 2 minutes), open the run and download **CdRipper-win-x64**
-   from *Artifacts*. Unzip it to get `CdRipper.exe`. No installer needed.
+Build: upload this folder to GitHub; the Actions tab builds CdRipper.exe (see .github/workflows/build.yml).
