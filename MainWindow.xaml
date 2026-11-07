@@ -20,6 +20,7 @@
             <ComboBox x:Name="DriveBox" Width="80" Margin="0,0,8,0" />
             <Button x:Name="RescanButton" Content="Rescan drives" Padding="12,4" Margin="0,0,8,0" Click="Rescan_Click" />
             <Button x:Name="ReadButton" Content="Read disc" Padding="16,4" FontWeight="SemiBold" Click="Read_Click" />
+            <Button x:Name="AboutButton" Content="About" Padding="12,4" Margin="24,0,0,0" Click="About_Click" />
         </StackPanel>
 
         <TextBox Grid.Row="1" x:Name="DiscIdText" IsReadOnly="True" BorderThickness="0"

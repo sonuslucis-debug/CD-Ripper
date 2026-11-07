@@ -49,6 +49,8 @@ public partial class MainWindow : Window
 
     void Rescan_Click(object sender, RoutedEventArgs e) => ScanDrives();
 
+    void About_Click(object sender, RoutedEventArgs e) => new AboutWindow { Owner = this }.ShowDialog();
+
     // ---------------------------------------------------------------- reading the disc
 
     async void Read_Click(object sender, RoutedEventArgs e)
@@ -307,7 +309,7 @@ public partial class MainWindow : Window
 
         string albumArtist = CleanName(ArtistBox.Text, "Unknown Artist");
         string album = CleanName(AlbumBox.Text, "Unknown Album");
-           string folder = Path.Combine(root, $"{albumArtist} - {album}");
+        string folder = Path.Combine(root, $"{albumArtist} - {album}");
 
         _ripCts = new CancellationTokenSource();
         var ct = _ripCts.Token;
