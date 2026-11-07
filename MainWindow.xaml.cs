@@ -307,7 +307,7 @@ public partial class MainWindow : Window
 
         string albumArtist = CleanName(ArtistBox.Text, "Unknown Artist");
         string album = CleanName(AlbumBox.Text, "Unknown Album");
-        string folder = Path.Combine(root, albumArtist, album);
+           string folder = Path.Combine(root, $"{albumArtist} - {album}");
 
         _ripCts = new CancellationTokenSource();
         var ct = _ripCts.Token;
