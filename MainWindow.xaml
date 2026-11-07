@@ -92,7 +92,11 @@
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False" SelectionUnit="Cell">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Rip" Width="44">
+                        <DataGridTemplateColumn Width="44">
+                            <DataGridTemplateColumn.Header>
+                                <CheckBox IsChecked="True" Click="SelectAll_Click" HorizontalAlignment="Center"
+                                          ToolTip="Select / deselect all tracks" />
+                                    </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}"
