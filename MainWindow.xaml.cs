@@ -198,7 +198,13 @@ public partial class MainWindow : Window
             SetStatus("Couldn't load the image: " + ex.Message);
         }
     }
-
+    void SelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        TrackGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        bool on = (sender as CheckBox)?.IsChecked == true;
+        foreach (var t in _tracks) t.Selected = on;
+        TrackGrid.Items.Refresh();
+    }
     void ApplyArtist_Click(object sender, RoutedEventArgs e)
     {
         TrackGrid.CommitEdit(DataGridEditingUnit.Row, true);
