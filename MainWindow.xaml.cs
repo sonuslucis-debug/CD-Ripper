@@ -22,6 +22,11 @@ public partial class MainWindow : Window
     string? _lastFolder;
     string _lastDiscId = "";
 
+    // what the Play button plays
+    List<PlaylistEntry>? _lastEntries;
+    string? _lastPlaylistPath;
+    string _lastExtension = ".mp3";
+
     // live ripping readout
     RipStats? _ripStats;
     DispatcherTimer? _statsTimer;
@@ -92,7 +97,7 @@ public partial class MainWindow : Window
         NoCoverText.Text = "No cover";
         NoCoverText.Visibility = Visibility.Visible;
         DiscIdText.Text = "";
-        StatsText.Text = "";
+        SetStats("", "", "", "");
         RipProgress.Value = 0;
         string previousGenre = GenreBox.Text;
         GenreBox.Text = "";   // genre isn't looked up online, so it is only restored if this is the same disc
@@ -236,7 +241,8 @@ public partial class MainWindow : Window
 
     void Format_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (QualityBox == null || FormatBox.SelectedItem is not OutputFormat format) return;
+        if (QualityBox == null || PlayButton == null || FormatBox.SelectedItem is not OutputFormat format) return;
+        UpdatePlayLabel(format.Extension);
         QualityBox.ItemsSource = format.Qualities;
         QualityBox.SelectedIndex = Math.Clamp(format.DefaultQuality, 0, format.Qualities.Count - 1);
         QualityBox.Visibility = format.Qualities.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -279,6 +285,45 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFolderDialog { Title = "Choose where to save the ripped tracks" };
         if (dialog.ShowDialog() == true) OutputBox.Text = dialog.FolderName;
+    }
+
+    void UpdatePlayLabel(string extension)
+    {
+        string? name = FileAssociation.FriendlyName(extension);
+        if (string.IsNullOrWhiteSpace(name)) name = "default player";
+        else if (name.Length > 26) name = name.Substring(0, 26);
+        PlayButton.Content = $"Play in {name}";
+    }
+
+    /// <summary>Plays the ripped album in whatever program Windows uses for that audio type.</summary>
+    void Play_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastEntries == null || _lastFolder == null) return;
+        try
+        {
+            string target;
+            if (_lastPlaylistPath != null && File.Exists(_lastPlaylistPath))
+            {
+                target = _lastPlaylistPath;
+            }
+            else
+            {
+                // no saved playlist: make a temporary one (full paths) so the whole album plays, not just track 1
+                target = Path.Combine(Path.GetTempPath(), "CdRipper-play.m3u");
+                var full = _lastEntries.Select(en => en with { FileName = Path.Combine(_lastFolder, en.FileName) });
+                Playlist.Write(target, full);
+            }
+
+            string? exe = FileAssociation.Executable(_lastExtension);
+            if (exe != null && File.Exists(exe))
+                Process.Start(new ProcessStartInfo(exe, $"\"{target}\"") { UseShellExecute = false });
+            else
+                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Couldn't start the player: " + ex.Message);
+        }
     }
 
     void OpenFolder_Click(object sender, RoutedEventArgs e)
@@ -350,6 +395,9 @@ public partial class MainWindow : Window
         var ct = _ripCts.Token;
         SetBusy(true);
         OpenFolderButton.IsEnabled = false;
+        PlayButton.IsEnabled = false;
+        _lastEntries = null;
+        _lastPlaylistPath = null;
         RipProgress.Value = 0;
         var stats = StartStats();
 
@@ -431,14 +479,19 @@ public partial class MainWindow : Window
             SetStatus("Finishing encoding...");
             await Task.WhenAll(jobs.Select(j => j.Done));
 
+            var entries = jobs.Select(j => new PlaylistEntry(
+                Path.GetFileName(j.File),
+                j.Track.Seconds,
+                PlaylistText(j.Track))).ToList();
+            _lastEntries = entries;
+            _lastExtension = format.Extension;
+
             bool playlistWritten = false;
             if (writePlaylist)
             {
-                var entries = jobs.Select(j => new PlaylistEntry(
-                    Path.GetFileName(j.File),
-                    j.Track.Seconds,
-                    PlaylistText(j.Track)));
-                Playlist.Write(Path.Combine(folder, folderName + ".m3u"), entries);
+                string playlistPath = Path.Combine(folder, folderName + ".m3u");
+                Playlist.Write(playlistPath, entries);
+                _lastPlaylistPath = playlistPath;
                 playlistWritten = true;
             }
 
@@ -476,6 +529,8 @@ public partial class MainWindow : Window
             StopStats();
             SetBusy(false);
             OpenFolderButton.IsEnabled = _lastFolder != null && Directory.Exists(_lastFolder);
+            PlayButton.IsEnabled = _lastEntries != null;
+            UpdatePlayLabel(_lastExtension);
             RipProgress.Value = 0;
             if (finishedDialog != null)
                 MessageBox.Show(this, finishedDialog, "Rip complete", MessageBoxButton.OK, finishedIcon);
@@ -523,8 +578,17 @@ public partial class MainWindow : Window
             _lastStatsTime = now;
         }
         double average = now > 0 ? sectors / now / 75.0 : 0;
-        StatsText.Text = $"Speed {_speed:0.0}x  (average {average:0.0}x)    Elapsed {FormatTime(now)}    " +
-                         $"Retries {s.Retries}    Unreadable sectors {s.Unreadable}";
+        SetStats($"Speed {_speed:0.0}x  (average {average:0.0}x)", $"Elapsed {FormatTime(now)}",
+                 $"Retries {s.Retries}", $"Unreadable sectors {s.Unreadable}");
+    }
+
+    void SetStats(string speed, string elapsed, string retries, string unreadable)
+    {
+        // each figure sits in its own fixed-width cell, so the line never shifts as the numbers change
+        SpeedText.Text = speed;
+        ElapsedText.Text = elapsed;
+        RetriesText.Text = retries;
+        UnreadableText.Text = unreadable;
     }
 
     string StatsSummary()

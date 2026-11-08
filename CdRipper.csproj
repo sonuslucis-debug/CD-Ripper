@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>CdRipper</AssemblyName>
     <RootNamespace>CdRipper</RootNamespace>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <ApplicationIcon>Images\app.ico</ApplicationIcon>
   </PropertyGroup>
 
