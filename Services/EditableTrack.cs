@@ -9,4 +9,5 @@ public sealed class EditableTrack
     public string Title { get; set; } = "";
     public string Artist { get; set; } = "";
     public string LengthText { get; set; } = "";
+    public int Seconds { get; set; }
 }

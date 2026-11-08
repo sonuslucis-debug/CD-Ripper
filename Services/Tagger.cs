@@ -7,6 +7,7 @@ public sealed class TagInfo
     public string Album { get; init; } = "";
     public string AlbumArtist { get; init; } = "";
     public string Genre { get; init; } = "";
+    public string Comment { get; init; } = "";
     public uint Year { get; init; }
     public uint Track { get; init; }
     public uint TrackCount { get; init; }
@@ -35,6 +36,7 @@ public static class Tagger
         tag.AlbumArtists = info.AlbumArtist.Length > 0 ? new[] { info.AlbumArtist } : Array.Empty<string>();
         tag.Album = info.Album;
         tag.Genres = info.Genre.Length > 0 ? new[] { info.Genre } : Array.Empty<string>();
+        tag.Comment = info.Comment;
         tag.Year = info.Year;
         tag.Track = info.Track;
         tag.TrackCount = info.TrackCount;

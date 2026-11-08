@@ -27,7 +27,7 @@ public partial class MainWindow : Window
         OutputBox.Text = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "CD Rips");
         FormatBox.ItemsSource = OutputFormats.All;
-        FormatBox.SelectedIndex = 0;
+        FormatBox.SelectedIndex = 1; // MP3; its default quality (192 kbps) is chosen by Format_SelectionChanged
         Loaded += (_, _) => ScanDrives();
     }
 
@@ -139,7 +139,8 @@ public partial class MainWindow : Window
                 TocTrack = a.Number,
                 Title = mb?.Title ?? "",
                 Artist = mb?.Artist ?? "",
-                LengthText = $"{seconds / 60}:{seconds % 60:00}"
+                LengthText = $"{seconds / 60}:{seconds % 60:00}",
+                Seconds = seconds
             });
         }
         _tracks = list;
@@ -209,7 +210,7 @@ public partial class MainWindow : Window
     {
         if (QualityBox == null || FormatBox.SelectedItem is not OutputFormat format) return;
         QualityBox.ItemsSource = format.Qualities;
-        QualityBox.SelectedIndex = 0;
+        QualityBox.SelectedIndex = Math.Clamp(format.DefaultQuality, 0, format.Qualities.Count - 1);
         QualityBox.Visibility = format.Qualities.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -271,6 +272,7 @@ public partial class MainWindow : Window
         CoverButton.IsEnabled = !busy;
         ApplyArtistButton.IsEnabled = !busy;
         FormatBox.IsEnabled = !busy;
+        PlaylistBox.IsEnabled = !busy;
         QualityBox.IsEnabled = !busy;
         ReleaseList.IsEnabled = !busy;
         TrackGrid.IsReadOnly = busy;
@@ -282,6 +284,8 @@ public partial class MainWindow : Window
         CancelButton.IsEnabled = false;
         SetStatus("Cancelling...");
     }
+
+    const string RippedByCredit = "Ripped with CD Ripper by Sonus Lucis and Claude.ai";
 
     async void Rip_Click(object sender, RoutedEventArgs e)
     {
@@ -305,11 +309,14 @@ public partial class MainWindow : Window
         string albumText = AlbumBox.Text.Trim();
         string albumArtistText = ArtistBox.Text.Trim();
         string genreText = GenreBox.Text.Trim();
+        string comment = format.Name == "MP3" ? RippedByCredit : "";
         var cover = _coverBytes;
+        bool writePlaylist = PlaylistBox.IsChecked == true;
 
         string albumArtist = CleanName(ArtistBox.Text, "Unknown Artist");
         string album = CleanName(AlbumBox.Text, "Unknown Album");
-        string folder = Path.Combine(root, $"{albumArtist} - {album}");
+        string folderName = $"{albumArtist} - {album}";
+        string folder = Path.Combine(root, folderName);
 
         _ripCts = new CancellationTokenSource();
         var ct = _ripCts.Token;
@@ -317,9 +324,12 @@ public partial class MainWindow : Window
         OpenFolderButton.IsEnabled = false;
         RipProgress.Value = 0;
 
-        int doneTracks = 0;
         int totalBad = 0;
         int tagProblems = 0;
+        var jobs = new List<(EditableTrack Track, string File, Task Done)>();
+        // Reading continues while earlier tracks are still being encoded; this limits how many encode at once.
+        var gate = new SemaphoreSlim(Math.Clamp(Environment.ProcessorCount - 1, 2, 4));
+        int started = 0;
         try
         {
             Directory.CreateDirectory(folder);
@@ -336,6 +346,7 @@ public partial class MainWindow : Window
             foreach (var track in selected)
             {
                 ct.ThrowIfCancellationRequested();
+                await gate.WaitAsync(ct);
 
                 var tocTrack = toc.Tracks.First(x => x.Number == track.TocTrack);
                 var next = toc.Tracks.FirstOrDefault(x => x.Number > track.TocTrack);
@@ -345,11 +356,6 @@ public partial class MainWindow : Window
                 string title = CleanName(track.Title, $"Track {track.Number:00}");
                 string file = Path.Combine(folder, $"{track.Number:00} - {title}{format.Extension}");
 
-                SetStatus($"Ripping track {doneTracks + 1} of {selected.Count}: {title}");
-                int baseCount = doneTracks;
-                var progress = new Progress<double>(f =>
-                    RipProgress.Value = (baseCount + f) / selected.Count * 100);
-
                 var tag = new TagInfo
                 {
                     Title = track.Title.Trim(),
@@ -357,6 +363,7 @@ public partial class MainWindow : Window
                     Album = albumText,
                     AlbumArtist = albumArtistText,
                     Genre = genreText,
+                    Comment = comment,
                     Year = year,
                     Track = (uint)track.Number,
                     TrackCount = (uint)_tracks.Count,
@@ -365,36 +372,57 @@ public partial class MainWindow : Window
                     Cover = cover
                 };
 
-                bool tagFailed = false;
-                int bad = await Task.Run(() =>
+                // The encoder runs on its own thread; tagging happens there once the file is complete.
+                var sink = new AsyncSink(quality.CreateSink(file), ct, () =>
                 {
-                    int unreadable = Ripper.RipTrack(reader, startLba, endLba, quality.CreateSink(file), progress, ct);
-                    if (format.Taggable)
-                    {
-                        try { Tagger.Apply(file, tag); }
-                        catch { tagFailed = true; }
-                    }
-                    return unreadable;
+                    if (!format.Taggable) return;
+                    try { Tagger.Apply(file, tag); }
+                    catch { Interlocked.Increment(ref tagProblems); }
                 });
-                if (tagFailed) tagProblems++;
-                totalBad += bad;
-                doneTracks++;
+                _ = sink.Completion.ContinueWith(_ => gate.Release(), TaskScheduler.Default);
+                jobs.Add((track, file, sink.Completion));
+
+                started++;
+                SetStatus($"Ripping track {started} of {selected.Count}: {title}");
+                int baseCount = started - 1;
+                var progress = new Progress<double>(f =>
+                    RipProgress.Value = (baseCount + f) / selected.Count * 100);
+
+                totalBad += await Task.Run(() => Ripper.RipTrack(reader, startLba, endLba, sink, progress, ct));
             }
 
             RipProgress.Value = 100;
+            SetStatus("Finishing encoding...");
+            await Task.WhenAll(jobs.Select(j => j.Done));
+
+            bool playlistWritten = false;
+            if (writePlaylist)
+            {
+                var entries = jobs.Select(j => new PlaylistEntry(
+                    Path.GetFileName(j.File),
+                    j.Track.Seconds,
+                    PlaylistText(j.Track)));
+                Playlist.Write(Path.Combine(folder, folderName + ".m3u"), entries);
+                playlistWritten = true;
+            }
+
             string message = totalBad == 0
-                ? $"Done. {doneTracks} track(s) ripped to {folder}"
+                ? $"Done. {jobs.Count} track(s) ripped to {folder}"
                 : $"Done, but {totalBad} unreadable sector(s) were replaced with silence (small clicks or gaps may be audible). Saved to {folder}";
+            if (playlistWritten) message += " A playlist (.m3u) was saved with them.";
             if (tagProblems > 0) message += $" Tags couldn't be written to {tagProblems} file(s).";
             SetStatus(message);
         }
         catch (OperationCanceledException)
         {
-            SetStatus($"Cancelled. {doneTracks} track(s) finished; the partly ripped track was removed.");
+            int finished = await CountFinishedAsync(jobs);
+            SetStatus($"Cancelled. {finished} track(s) finished; any unfinished track was removed.");
         }
         catch (Exception ex)
         {
-            SetStatus("Error: " + ex.Message);
+            _ripCts?.Cancel();   // stop any tracks still encoding
+            int finished = await CountFinishedAsync(jobs);
+            SetStatus($"Error: {ex.Message}  ({finished} track(s) were completed.)");
         }
         finally
         {
@@ -402,6 +430,19 @@ public partial class MainWindow : Window
             SetBusy(false);
             OpenFolderButton.IsEnabled = _lastFolder != null && Directory.Exists(_lastFolder);
         }
+    }
+
+    static async Task<int> CountFinishedAsync(List<(EditableTrack Track, string File, Task Done)> jobs)
+    {
+        try { await Task.WhenAll(jobs.Select(j => j.Done)); } catch { }
+        return jobs.Count(j => j.Done.IsCompletedSuccessfully);
+    }
+
+    static string PlaylistText(EditableTrack t)
+    {
+        string title = t.Title.Trim().Length > 0 ? t.Title.Trim() : $"Track {t.Number:00}";
+        string artist = t.Artist.Trim();
+        return artist.Length > 0 ? $"{artist} - {title}" : title;
     }
 
     // ---------------------------------------------------------------- utilities

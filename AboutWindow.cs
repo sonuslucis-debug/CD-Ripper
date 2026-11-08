@@ -8,7 +8,7 @@ namespace CdRipper;
 /// <summary>The About box: version, release date and credits.</summary>
 public sealed class AboutWindow : Window
 {
-    public const string ReleaseDate = "7 November 2026";
+    public const string ReleaseDate = "8 November 2026";
 
     public AboutWindow()
     {
@@ -18,6 +18,7 @@ public sealed class AboutWindow : Window
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
+        FontFamily = new FontFamily("Montserrat, Segoe UI");
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         string versionText = version == null ? "" : $"{version.Major}.{version.Minor}.{version.Build}";
@@ -28,12 +29,13 @@ public sealed class AboutWindow : Window
         {
             Text = "CD Ripper",
             FontSize = 28,
-            FontWeight = FontWeights.SemiBold
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)Application.Current.FindResource("NavyBrush")
         });
         panel.Children.Add(new TextBlock
         {
             Text = $"Version {versionText}  -  {ReleaseDate}",
-            Foreground = Brushes.Gray,
+            Foreground = (Brush)Application.Current.FindResource("AccentBrush"),
             Margin = new Thickness(0, 2, 0, 18)
         });
 
@@ -53,7 +55,8 @@ public sealed class AboutWindow : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 12, 0, 0),
             IsDefault = true,
-            IsCancel = true
+            IsCancel = true,
+            Style = (Style)Application.Current.FindResource("PrimaryButton")
         };
         ok.Click += (_, _) => Close();
         panel.Children.Add(ok);
@@ -67,6 +70,7 @@ public sealed class AboutWindow : Window
         {
             Text = heading,
             FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)Application.Current.FindResource("NavyBrush"),
             Margin = new Thickness(0, 0, 0, 2)
         });
         panel.Children.Add(new TextBlock

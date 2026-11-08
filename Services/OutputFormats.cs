@@ -4,7 +4,7 @@ namespace CdRipper.Services;
 
 public sealed record QualityOption(string Label, Func<string, IPcmSink> CreateSink);
 
-public sealed record OutputFormat(string Name, string Extension, bool Taggable, IReadOnlyList<QualityOption> Qualities);
+public sealed record OutputFormat(string Name, string Extension, bool Taggable, IReadOnlyList<QualityOption> Qualities, int DefaultQuality = 0);
 
 public static class OutputFormats
 {
@@ -21,7 +21,7 @@ public static class OutputFormats
             new QualityOption("320 kbps", p => new Mp3Sink(p, 320)),
             new QualityOption("192 kbps", p => new Mp3Sink(p, 192)),
             new QualityOption("128 kbps", p => new Mp3Sink(p, 128)),
-        }),
+        }, DefaultQuality: 3),
         new OutputFormat("FLAC", ".flac", true, new[]
         {
             new QualityOption("Lossless", p => new FlacSink(p)),
