@@ -13,6 +13,8 @@
         <SolidColorBrush x:Key="TintBrush" Color="#EAF1F8" />
         <SolidColorBrush x:Key="TintDarkBrush" Color="#D2E2F1" />
         <SolidColorBrush x:Key="SoftTextBrush" Color="#A9C7E4" />
+        <SolidColorBrush x:Key="RowBrush" Color="#E8FFFFFF" />
+        <SolidColorBrush x:Key="RowAltBrush" Color="#E8EAF1F8" />
 
         <!-- Selection colours follow the palette -->
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2E6DA4" />
@@ -104,8 +106,9 @@
 
         <Style TargetType="DataGrid">
             <Setter Property="AlternationCount" Value="2" />
-            <Setter Property="AlternatingRowBackground" Value="{StaticResource TintBrush}" />
-            <Setter Property="RowBackground" Value="White" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="AlternatingRowBackground" Value="{StaticResource RowAltBrush}" />
+            <Setter Property="RowBackground" Value="{StaticResource RowBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource TintDarkBrush}" />
             <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource TintDarkBrush}" />
             <Setter Property="VerticalGridLinesBrush" Value="Transparent" />

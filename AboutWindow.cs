@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace CdRipper;
 
@@ -13,11 +14,12 @@ public sealed class AboutWindow : Window
     public AboutWindow()
     {
         Title = "About CD Ripper";
-        Width = 460;
+        Width = 500;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Images/app.ico", UriKind.Absolute));
         FontFamily = (FontFamily)Application.Current.FindResource("BrandFont");
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -25,19 +27,34 @@ public sealed class AboutWindow : Window
 
         var panel = new StackPanel { Margin = new Thickness(26) };
 
-        panel.Children.Add(new TextBlock
+        var logo = new Image
+        {
+            Source = new BitmapImage(new Uri("pack://application:,,,/Images/logo.png", UriKind.Absolute)),
+            Width = 104,
+            Height = 104,
+            Margin = new Thickness(0, 0, 20, 0)
+        };
+        RenderOptions.SetBitmapScalingMode(logo, BitmapScalingMode.HighQuality);
+
+        var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        titles.Children.Add(new TextBlock
         {
             Text = "CD Ripper",
-            FontSize = 28,
+            FontSize = 30,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)Application.Current.FindResource("NavyBrush")
         });
-        panel.Children.Add(new TextBlock
+        titles.Children.Add(new TextBlock
         {
             Text = $"Version {versionText}  -  {ReleaseDate}",
             Foreground = (Brush)Application.Current.FindResource("AccentBrush"),
-            Margin = new Thickness(0, 2, 0, 18)
+            Margin = new Thickness(0, 2, 0, 0)
         });
+
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 20) };
+        header.Children.Add(logo);
+        header.Children.Add(titles);
+        panel.Children.Add(header);
 
         AddSection(panel, "Created by", "Sonus Lucis - concept, design, direction and testing");
         AddSection(panel, "Programmed by", "Claude, made by Anthropic - all of the code");
