@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using CdRipper.Services;
 using Microsoft.Win32;
 
@@ -20,6 +21,14 @@ public partial class MainWindow : Window
     byte[]? _coverBytes;
     string? _lastFolder;
     string _lastDiscId = "";
+
+    // live ripping readout
+    RipStats? _ripStats;
+    DispatcherTimer? _statsTimer;
+    readonly Stopwatch _ripClock = new();
+    long _lastStatsSectors;
+    double _lastStatsTime;
+    double _speed;
     List<EditableTrack> _tracks = new();
 
     public MainWindow()
@@ -83,6 +92,7 @@ public partial class MainWindow : Window
         NoCoverText.Text = "No cover";
         NoCoverText.Visibility = Visibility.Visible;
         DiscIdText.Text = "";
+        StatsText.Text = "";
         RipProgress.Value = 0;
         string previousGenre = GenreBox.Text;
         GenreBox.Text = "";   // genre isn't looked up online, so it is only restored if this is the same disc
@@ -341,6 +351,7 @@ public partial class MainWindow : Window
         SetBusy(true);
         OpenFolderButton.IsEnabled = false;
         RipProgress.Value = 0;
+        var stats = StartStats();
 
         int totalBad = 0;
         int tagProblems = 0;
@@ -413,7 +424,7 @@ public partial class MainWindow : Window
                 var progress = new Progress<double>(f =>
                     RipProgress.Value = (baseCount + f) / selected.Count * 100);
 
-                totalBad += await Task.Run(() => Ripper.RipTrack(reader, startLba, endLba, sink, progress, ct));
+                totalBad += await Task.Run(() => Ripper.RipTrack(reader, startLba, endLba, sink, progress, ct, stats));
             }
 
             RipProgress.Value = 100;
@@ -438,7 +449,7 @@ public partial class MainWindow : Window
             if (tagProblems > 0) message += $" Tags couldn't be written to {tagProblems} file(s).";
             SetStatus(message);
 
-            finishedDialog = $"Finished ripping {jobs.Count} track(s).\n\nSaved to:\n{folder}";
+            finishedDialog = $"Finished ripping {jobs.Count} track(s).\n\nSaved to:\n{folder}\n\n{StatsSummary()}";
             if (playlistWritten) finishedDialog += "\n\nA playlist (.m3u) was saved with them.";
             if (totalBad > 0)
             {
@@ -462,6 +473,7 @@ public partial class MainWindow : Window
         finally
         {
             _ripCts = null;
+            StopStats();
             SetBusy(false);
             OpenFolderButton.IsEnabled = _lastFolder != null && Directory.Exists(_lastFolder);
             RipProgress.Value = 0;
@@ -469,6 +481,62 @@ public partial class MainWindow : Window
                 MessageBox.Show(this, finishedDialog, "Rip complete", MessageBoxButton.OK, finishedIcon);
         }
     }
+
+    // ---------------------------------------------------------------- live readout
+
+    RipStats StartStats()
+    {
+        _ripStats = new RipStats();
+        _lastStatsSectors = 0;
+        _lastStatsTime = 0;
+        _speed = 0;
+        _ripClock.Restart();
+        _statsTimer?.Stop();
+        _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _statsTimer.Tick += (_, _) => UpdateStats();
+        _statsTimer.Start();
+        UpdateStats();
+        return _ripStats;
+    }
+
+    void StopStats()
+    {
+        _statsTimer?.Stop();
+        _ripClock.Stop();
+        UpdateStats();   // leave the final figures on screen
+    }
+
+    void UpdateStats()
+    {
+        var s = _ripStats;
+        if (s == null) return;
+
+        double now = _ripClock.Elapsed.TotalSeconds;
+        long sectors = s.Sectors;
+        double dt = now - _lastStatsTime;
+        if (dt >= 0.4)
+        {
+            // 1x is normal playback speed: 75 sectors per second
+            double current = (sectors - _lastStatsSectors) / dt / 75.0;
+            _speed = _speed <= 0 ? current : _speed * 0.6 + current * 0.4;
+            _lastStatsSectors = sectors;
+            _lastStatsTime = now;
+        }
+        double average = now > 0 ? sectors / now / 75.0 : 0;
+        StatsText.Text = $"Speed {_speed:0.0}x  (average {average:0.0}x)    Elapsed {FormatTime(now)}    " +
+                         $"Retries {s.Retries}    Unreadable sectors {s.Unreadable}";
+    }
+
+    string StatsSummary()
+    {
+        var s = _ripStats;
+        double now = _ripClock.Elapsed.TotalSeconds;
+        if (s == null || now <= 0) return "";
+        double average = s.Sectors / now / 75.0;
+        return $"Ripped in {FormatTime(now)} at an average of {average:0.0}x, with {s.Retries} read retries.";
+    }
+
+    static string FormatTime(double seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
 
     static async Task<int> CountFinishedAsync(List<(EditableTrack Track, string File, Task Done)> jobs)
     {

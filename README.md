@@ -10,6 +10,7 @@ A simple, standalone Windows program for ripping audio CDs. It identifies your d
 - **Tags and artwork embedded** in MP3, FLAC and OGG files. WAV has no standard tag format, so WAV files carry none.
 - **Tidy output.** Files are saved as `Artist - Album\01 - Artist - Title.mp3`, with the cover saved alongside as `cover.jpg`.
 - **Optional M3U playlist** for each album (on by default).
+- **Live readout.** While ripping, the window shows the current and average speed, elapsed time, read retries and any unreadable sectors.
 - **Careful reading.** Unreadable sectors are retried, and any that can't be recovered are reported rather than hidden. The app does not perform AccurateRip verification.
 - **One file.** `CdRipper.exe` needs no installer.
 

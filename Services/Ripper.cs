@@ -11,7 +11,7 @@ public static class Ripper
     /// be read (written as silence). If the rip is cancelled or fails, the partly written file is deleted.
     /// </summary>
     public static int RipTrack(ISectorSource source, int startLba, int endLba, IPcmSink sink,
-        IProgress<double>? progress, CancellationToken ct)
+        IProgress<double>? progress, CancellationToken ct, RipStats? stats = null)
     {
         int total = endLba - startLba;
         if (total <= 0) throw new ArgumentException("This track has no audio data.");
@@ -30,7 +30,7 @@ public static class Ripper
                 int n = Math.Min(ChunkSectors, total - done);
                 int lba = startLba + done;
 
-                if (ReadWithRetry(source, lba, n, buffer, 3))
+                if (ReadWithRetry(source, lba, n, buffer, 3, stats))
                 {
                     consecutiveBad = 0;
                 }
@@ -40,7 +40,7 @@ public static class Ripper
                     for (int i = 0; i < n; i++)
                     {
                         ct.ThrowIfCancellationRequested();
-                        if (ReadWithRetry(source, lba + i, 1, single, 3))
+                        if (ReadWithRetry(source, lba + i, 1, single, 3, stats))
                         {
                             Buffer.BlockCopy(single, 0, buffer, i * SectorBytes, SectorBytes);
                             consecutiveBad = 0;
@@ -49,6 +49,7 @@ public static class Ripper
                         {
                             Array.Clear(buffer, i * SectorBytes, SectorBytes);
                             bad++;
+                            stats?.AddUnreadable();
                             consecutiveBad++;
                             if (consecutiveBad >= MaxConsecutiveBadSectors)
                                 throw new IOException(
@@ -60,6 +61,7 @@ public static class Ripper
 
                 sink.Write(buffer, n * SectorBytes);
                 done += n;
+                stats?.AddSectors(n);
 
                 int permille = (int)((long)done * 1000 / total);
                 if (permille != lastReported)
@@ -82,10 +84,13 @@ public static class Ripper
         return bad;
     }
 
-    static bool ReadWithRetry(ISectorSource source, int lba, int count, byte[] buffer, int attempts)
+    static bool ReadWithRetry(ISectorSource source, int lba, int count, byte[] buffer, int attempts, RipStats? stats)
     {
         for (int i = 0; i < attempts; i++)
+        {
             if (source.Read(lba, count, buffer)) return true;
+            stats?.AddRetry();   // every failed read attempt is counted
+        }
         return false;
     }
 }
