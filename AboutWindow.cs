@@ -18,7 +18,7 @@ public sealed class AboutWindow : Window
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        FontFamily = new FontFamily("Montserrat, Segoe UI");
+        FontFamily = (FontFamily)Application.Current.FindResource("BrandFont");
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         string versionText = version == null ? "" : $"{version.Major}.{version.Minor}.{version.Build}";
@@ -46,6 +46,7 @@ public sealed class AboutWindow : Window
         AddSection(panel, "Built with",
             "LAME MP3 encoder (via NAudio.Lame), OggVorbisEncoder and TagLib# for tagging. " +
             "The FLAC encoder was written for this app.");
+        AddSection(panel, "Typeface", "Montserrat, by The Montserrat Project Authors (SIL Open Font License 1.1)");
 
         var ok = new Button
         {

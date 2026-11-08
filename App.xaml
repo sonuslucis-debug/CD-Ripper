@@ -4,6 +4,9 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
 
+        <!-- Montserrat is embedded in the app (Fonts folder); Segoe UI is only a safety net -->
+        <FontFamily x:Key="BrandFont">/Fonts/#Montserrat, Segoe UI</FontFamily>
+
         <!-- Sonus Lucis house colours (from sonuslucis.com) -->
         <SolidColorBrush x:Key="NavyBrush" Color="#0E3A5B" />
         <SolidColorBrush x:Key="AccentBrush" Color="#2E6DA4" />

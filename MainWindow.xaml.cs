@@ -309,7 +309,7 @@ public partial class MainWindow : Window
         string albumText = AlbumBox.Text.Trim();
         string albumArtistText = ArtistBox.Text.Trim();
         string genreText = GenreBox.Text.Trim();
-        string comment = format.Name == "MP3" ? RippedByCredit : "";
+        string comment = format.Taggable ? RippedByCredit : "";
         var cover = _coverBytes;
         bool writePlaylist = PlaylistBox.IsChecked == true;
 
@@ -326,6 +326,8 @@ public partial class MainWindow : Window
 
         int totalBad = 0;
         int tagProblems = 0;
+        string? finishedDialog = null;
+        var finishedIcon = MessageBoxImage.Information;
         var jobs = new List<(EditableTrack Track, string File, Task Done)>();
         // Reading continues while earlier tracks are still being encoded; this limits how many encode at once.
         var gate = new SemaphoreSlim(Math.Clamp(Environment.ProcessorCount - 1, 2, 4));
@@ -412,6 +414,16 @@ public partial class MainWindow : Window
             if (playlistWritten) message += " A playlist (.m3u) was saved with them.";
             if (tagProblems > 0) message += $" Tags couldn't be written to {tagProblems} file(s).";
             SetStatus(message);
+
+            finishedDialog = $"Finished ripping {jobs.Count} track(s).\n\nSaved to:\n{folder}";
+            if (playlistWritten) finishedDialog += "\n\nA playlist (.m3u) was saved with them.";
+            if (totalBad > 0)
+            {
+                finishedDialog += $"\n\n{totalBad} unreadable sector(s) were replaced with silence, so small clicks or gaps may be audible.";
+                finishedIcon = MessageBoxImage.Warning;
+            }
+            if (tagProblems > 0)
+                finishedDialog += $"\n\nTags couldn't be written to {tagProblems} file(s).";
         }
         catch (OperationCanceledException)
         {
@@ -429,6 +441,9 @@ public partial class MainWindow : Window
             _ripCts = null;
             SetBusy(false);
             OpenFolderButton.IsEnabled = _lastFolder != null && Directory.Exists(_lastFolder);
+            RipProgress.Value = 0;
+            if (finishedDialog != null)
+                MessageBox.Show(this, finishedDialog, "Rip complete", MessageBoxButton.OK, finishedIcon);
         }
     }
 
