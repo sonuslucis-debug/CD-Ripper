@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     string? _drive;
     byte[]? _coverBytes;
     string? _lastFolder;
+    string _lastDiscId = "";
     List<EditableTrack> _tracks = new();
 
     public MainWindow()
@@ -49,6 +50,19 @@ public partial class MainWindow : Window
 
     void Rescan_Click(object sender, RoutedEventArgs e) => ScanDrives();
 
+    void Link_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        OpenUrl(e.Uri.AbsoluteUri);
+        e.Handled = true;
+    }
+
+    /// <summary>Opens a web address in the user's default browser.</summary>
+    public static void OpenUrl(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* no browser available: nothing useful to do */ }
+    }
+
     void About_Click(object sender, RoutedEventArgs e) => new AboutWindow { Owner = this }.ShowDialog();
 
     // ---------------------------------------------------------------- reading the disc
@@ -70,9 +84,11 @@ public partial class MainWindow : Window
         NoCoverText.Visibility = Visibility.Visible;
         DiscIdText.Text = "";
         RipProgress.Value = 0;
+        string previousGenre = GenreBox.Text;
+        GenreBox.Text = "";   // genre isn't looked up online, so it is only restored if this is the same disc
         AlbumBox.Text = ArtistBox.Text = YearBox.Text = "";
         DiscNumBox.Text = "1";
-        DiscTotalBox.Text = "1";
+        DiscTotalBox.Text = "";
 
         try
         {
@@ -81,6 +97,8 @@ public partial class MainWindow : Window
             _toc = toc;
             _drive = drive;
             var discId = DiscId.Compute(toc);
+            if (discId == _lastDiscId) GenreBox.Text = previousGenre;
+            _lastDiscId = discId;
             DiscIdText.Text = $"Disc ID: {discId}    ({toc.AudioTrackCount} audio tracks)";
 
             List<ReleaseInfo> releases;
@@ -155,7 +173,7 @@ public partial class MainWindow : Window
         ArtistBox.Text = release.Artist;
         YearBox.Text = release.Date.Length >= 4 ? release.Date.Substring(0, 4) : "";
         DiscNumBox.Text = release.DiscNumber.ToString();
-        DiscTotalBox.Text = release.DiscCount.ToString();
+        DiscTotalBox.Text = "";   // MusicBrainz counts every disc in a release (DVDs too), so leave the total for you to set
         FillTracks(release);
 
         _coverCts?.Cancel();
@@ -356,7 +374,12 @@ public partial class MainWindow : Window
                 int endLba = (next?.Offset ?? toc.LeadOut) - 150;
 
                 string title = CleanName(track.Title, $"Track {track.Number:00}");
-                string file = Path.Combine(folder, $"{track.Number:00} - {title}{format.Extension}");
+                // "01 - Artist - Title": the track's own artist, else the album artist, else just "01 - Title"
+                string artistPart = CleanName(track.Artist.Trim().Length > 0 ? track.Artist : albumArtistText, "");
+                string fileBase = artistPart.Length > 0
+                    ? $"{track.Number:00} - {artistPart} - {title}"
+                    : $"{track.Number:00} - {title}";
+                string file = Path.Combine(folder, fileBase + format.Extension);
 
                 var tag = new TagInfo
                 {

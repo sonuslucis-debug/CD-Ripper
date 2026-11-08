@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -56,6 +57,7 @@ public sealed class AboutWindow : Window
         header.Children.Add(titles);
         panel.Children.Add(header);
 
+        AddLinkSection(panel, "Website", "https://sonuslucis.com", "sonuslucis.com");
         AddSection(panel, "Created by", "Sonus Lucis - concept, design, direction and testing");
         AddSection(panel, "Programmed by", "Claude, made by Anthropic - all of the code");
         AddSection(panel, "Album data and cover art",
@@ -80,6 +82,24 @@ public sealed class AboutWindow : Window
         panel.Children.Add(ok);
 
         Content = panel;
+    }
+
+    static void AddLinkSection(StackPanel panel, string heading, string url, string display)
+    {
+        panel.Children.Add(new TextBlock
+        {
+            Text = heading,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)Application.Current.FindResource("NavyBrush"),
+            Margin = new Thickness(0, 0, 0, 2)
+        });
+        var link = new Hyperlink(new Run(display)) { NavigateUri = new Uri(url) };
+        link.RequestNavigate += (_, e) =>
+        {
+            MainWindow.OpenUrl(e.Uri.AbsoluteUri);
+            e.Handled = true;
+        };
+        panel.Children.Add(new TextBlock(link) { Margin = new Thickness(0, 0, 0, 12) });
     }
 
     static void AddSection(StackPanel panel, string heading, string text)

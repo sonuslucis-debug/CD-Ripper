@@ -43,6 +43,16 @@ public static class Tagger
         tag.Disc = info.Disc;
         tag.DiscCount = info.DiscCount;
 
+        // Zero-pad the track number ("03", or "03/12" in MP3s) so players that show the raw tag sort and read neatly.
+        int width = Math.Max(2, info.TrackCount.ToString().Length);
+        string trackText = info.Track.ToString().PadLeft(width, '0');
+        if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3)
+            id3.SetTextFrame("TRCK", info.TrackCount > 0
+                ? $"{trackText}/{info.TrackCount.ToString().PadLeft(width, '0')}"
+                : trackText);
+        if (file.GetTag(TagLib.TagTypes.Xiph, false) is TagLib.Ogg.XiphComment xiph)
+            xiph.SetField("TRACKNUMBER", trackText);
+
         if (info.Cover != null && info.Cover.Length > 0)
         {
             bool png = info.Cover.Length > 4 && info.Cover[0] == 0x89 && info.Cover[1] == 0x50;
